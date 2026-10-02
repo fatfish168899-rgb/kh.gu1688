@@ -830,8 +830,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     // 状态轮询
     window.statusPoller = setInterval(async () => {
+        if (!window.API_BASE) return;
         const configEl = document.getElementById('checkout-config');
-        if (!configEl) return;
+        if (!configEl || !configEl.dataset.orderNo) return;
         try {
             const apiBase = (window.API_BASE || '').endsWith('/') ? window.API_BASE : (window.API_BASE ? window.API_BASE + '/' : '');
             const res = await fetch(`${apiBase}api/check_order.php?order_no=${configEl.dataset.orderNo}&token=${currentToken}`);
