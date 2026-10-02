@@ -293,34 +293,53 @@
 
     <script src="assets/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/qrcode.min.js"></script>
-    <!-- 设置 API 基准地址（必须是 https，且主机名为 gu1688.com 或以 .gu1688.com 结尾） -->
+    <!-- 设置 API 基准地址：必须是 https，且主机名为 gu1688.com 或以 .gu1688.com 结尾。没有合法地址时不请求任何站。 -->
     <script>
         (function() {
-            const fallbackApi = 'https://kh888.gu1688.com/';
             const params = new URLSearchParams(window.location.search);
             let customApi = params.get('api_base') || params.get('api');
-            
-            let isValid = false;
-            if (customApi && customApi.startsWith('https://')) {
+            let errorTitle = '';
+            let errorText = '';
+
+            if (!customApi) {
+                errorTitle = '缺少接口地址';
+                errorText = '支付链接里没有 api，请从后台重新打开收银台。';
+            } else if (!customApi.startsWith('https://')) {
+                errorTitle = '接口地址无效';
+                errorText = 'api 必须是 https。当前链接不会请求任何站点。';
+            } else {
                 try {
                     const parsedUrl = new URL(customApi);
                     const host = parsedUrl.hostname.toLowerCase();
                     if (host === 'gu1688.com' || host.endsWith('.gu1688.com')) {
-                        isValid = true;
                         if (!customApi.endsWith('/')) customApi += '/';
                         window.API_BASE = customApi;
+                    } else {
+                        errorTitle = '接口地址无效';
+                        errorText = '只允许 gu1688.com 及其子域名。当前链接不会请求任何站点。';
                     }
                 } catch (e) {
-                    isValid = false;
+                    errorTitle = '接口地址无效';
+                    errorText = 'api 无法解析。当前链接不会请求任何站点。';
                 }
             }
-            
-            if (!isValid) {
-                window.API_BASE = fallbackApi;
+
+            if (!window.API_BASE) {
+                window.API_BASE = '';
+                window.paybankShowApiError = function () {
+                    const loading = document.getElementById('page-loading');
+                    if (loading) loading.style.display = 'none';
+                    const container = document.querySelector('.checkout-container');
+                    if (container) container.style.opacity = '1';
+                    const ph = document.getElementById('selection-placeholder');
+                    if (ph) {
+                        ph.innerHTML = '<div class="error-overlay"><h5>' + errorTitle + '</h5><p>' + errorText + '</p></div>';
+                    }
+                };
             }
         })();
     </script>
-    <script src="assets/js/checkout.js?v=1.7.1"></script>
+    <script src="assets/js/checkout.js?v=1.7.2"></script>
 
 
     <script>
@@ -341,6 +360,12 @@
         };
 
         async function initPage() {
+            if (!window.API_BASE) {
+                if (typeof window.paybankShowApiError === 'function') window.paybankShowApiError();
+                if (window.statusPoller) clearInterval(window.statusPoller);
+                return;
+            }
+
             const up = new URLSearchParams(window.location.search);
             const ono = up.get('order_no') || up.get('trade_no');
             const tkn = up.get('token') || '';
